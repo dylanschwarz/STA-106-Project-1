@@ -1,0 +1,201 @@
+
+
+```{r, echo = FALSE}
+library(readr)
+loseit <- read.csv("loseit.csv")
+```
+
+### Introduction
+
+76 subjects took part in either Diet A, B, or C. After completing the diet, their weight was measured and compared with their weight before the diet. We tested to see if any diets had a greater result in weight lost using Single Factor Anova as our approach.
+
+
+### Summary
+
+**Summary Statistics**
+
+Groups A and B appear to have a simlar mean while Group C is noticeably larger. All groups appear to have a similar standard deviation and they all have a similar sample size.
+```{r, echo = FALSE}
+group.means =  by(loseit$Loss , loseit$Diet , mean)
+group.sds = by(loseit$Loss , loseit$Diet , sd)
+group.nis = by(loseit$Loss , loseit$Diet , length)
+the.summary = rbind(group.means , group.sds , group.nis)
+the.summary = round(the.summary , digits = 4)
+colnames(the.summary) = names(group.means)
+rownames(the.summary) = c("Means" , "Std. Dev" , "Sample Size")
+the.summary
+```
+
+**Histogram**
+
+From looking at our histograms, Group A appears to be the most normally distributed with possibly a few outliers. Group B appears to have the largest variance and Group C appears to have the highest mean and the smallest variance while slightly skewed to the right. Groups A and B appear more symmetric but not perfectly normal. 
+
+
+
+```{r, echo = FALSE}
+library(ggplot2)
+ggplot(loseit , aes(x = Loss)) + geom_histogram(binwidth = .5) + facet_grid(Diet ~.) +ggtitle("Histogram of Weightloss by Group")
+```
+<br>
+<br>
+<br>
+
+**Boxplot**
+
+From looking at the boxplot, Group A appears to have the smallest variance however also has 2 extreme values towards the higher end. Group C appears to have the second smallest variance with no exreme values and also appears to have the highest median. Finally, Group B appears to have the widest variance with one extreme value on the lower end with a similar median to Group A.
+
+```{r, echo = FALSE}
+boxplot(Loss ~ Diet, data = loseit, main = "Boxplot of Weight Loss by Group",horizontal = TRUE)
+```
+
+**Overall Trend**
+
+After looking at both plots and the summary statistics, it appears that all groups have a similar standard deviation, however Groups A and B appear to have extreme values, while Group C does not. Groups A and B have near symmetric distribution with Group A being the closest to a normal distribution. Group C appears to be skewed right. Group C has the highest observed mean and median while Group A and B have a similar mean and median. 
+
+### Diagnostics 
+
+**Outliers**
+
+After looking over the histogram, boxplot, and summary statistics it appears that there may be outliers and non-nomral distribution of residuals. We are going to test the assumptions of equal variance of residuals and normality of the errors. 
+
+After semi-studentizing our data and creating a cutoff at t1−α/(2∗nt), there were no values beyond this cutoff meaning there are no outliers. 
+```{r, echo = FALSE}
+the.model = lm(Loss ~ Diet , data = loseit)
+loseit$ei = the.model$residuals
+nt = nrow(loseit) 
+a = length(unique(loseit$Diet)) 
+SSE = sum(loseit$ei^2)
+MSE = SSE/(nt-a) 
+eij.star = the.model$residuals/sqrt(MSE)
+alpha = 0.05
+t.cutoff= qt(1-alpha/(2*nt), nt-a)
+CO.eij = which(abs(eij.star) > t.cutoff)
+```
+
+<br>
+<br>
+
+
+**Normality**
+
+We tested the normality of the residuals by plotting them and performing the Shapiro-Wilks Test. The residuals on the plot appear very linear with most of the residuals around zero. Additionally the Shapiro-Wilks Test assumes the null hypothesis that the errors are normally distributed and an alternative hypothesis that the errors are not normally distributed. The test returned a p-value of 0.9921 which is far greater than any alpha we would use, so we fail the reject the null hypothesis and conclude that the errors are normally distributed.
+
+```{r, echo = FALSE}
+qqnorm(the.model$residuals)
+```
+
+```{r, echo = FALSE}
+ei = the.model$residuals
+the.SWtest = shapiro.test(ei)
+```
+
+**Constant Variance**
+
+We conducted the Brown-Forsythe Test to test if our residuals had constant variance. The test returned a p-value of 0.6946 which is much larger than any reasonable alpha, such as 0.05 so we fail to reject the null and conclude that the residuals do have constant variance. 
+```{r, echo = FALSE}
+library(car)
+the.BFtest = leveneTest(ei~ Diet, data=loseit, center=median)
+p.val = the.BFtest[[3]][1]
+```
+
+**Overall Diagnostics** 
+
+After conducting several tests our data was found to contain no outliers with residuals distributed normally and maintaining constant variance. 
+
+### Analysis
+
+We fit the Group means model to our data, shown as Yij = μi + εij, μi estimated with Yij, 
+μa = population mean for group A, 
+μb = population mean for group B, 
+μc = population mean for group C, 
+εij = residuals, which sum to 0, 
+Ho: μa = μb = μc, 
+Ha: At least one group mean is not equal
+
+<br>
+<br>
+
+**Single Factor Anova Hypothesis Test**
+
+We conducted a SFA hypothesis test with the null hypothesis that all true group means are equal and tha alternative hypothesis that at least one true group mean is not equal to the rest. 
+The F test statistic from the test is 6.1537 which has a corresponding p-value of 0.00339 which is smaller than alpha = 0.01 or alpha = 0.05 so we reject the null hypothesis and conclude that at least one true group mean is different that the rest. 
+
+```{r, echo = FALSE}
+model.fit = lm(Loss ~ Diet , data = loseit)
+anova.model = anova(model.fit)
+```
+
+**Power**
+
+When using alpha = 0.05 we get a power of 0.8777748 which is large and means there is a small chance of a type two error. 
+```{r, echo = FALSE}
+anova.table = anova(model.fit)
+MSE = anova.table[2,3]
+give.me.power = function(ybar,ni,MSE,alpha){
+  a = length(ybar) 
+  nt = sum(ni) 
+  overall.mean = sum(ni*ybar)/nt 
+  phi = (1/sqrt(MSE))*sqrt( sum(ni*(ybar - overall.mean)^2)/a) 
+  phi.star = a *phi^2 
+  Fc = qf(1-alpha,a-1,nt-a) 
+  power = 1 - pf(Fc, a-1, nt-a, phi.star)
+  return(power)
+}
+the.power = give.me.power(group.means,group.nis,MSE,0.05)
+```
+
+
+**Confidence Intervals**
+
+The SFA test revealed that at least one true group mean was not equal so we conducted pairwise confidence intervals to determine which one or ones were different. To run the proper confidence intervals we decided to use the Tukey multiplier which has a value of 2.392435 because it is lower that the Bonferroni multiplier of 2.450398. 
+
+The mean for Diets A and B appeared similar so we conducted a 95% confidence interval for the true difference in mean weight lost between Diet A and Diet B. The interval contains zero, so we are 95% confident that there is no true difference in mean weight lost between the two diets. We are 95% confident that the true avarage of Diet C is larger than Diet A by between 0.3769153 and 3.4897514. We are 95% confident that the true avarage of Diet C is larger than Diet B by between 0.4254832 and 3.5051835.
+
+
+```{r, echo = FALSE}
+g=3
+B = qt(1-alpha/(2*g),nt-a)
+s = sqrt((a-1)*qf(1-alpha, a-1, nt-a))
+Tuk = qtukey(1-alpha,a,nt-a)/sqrt(2)
+```
+
+```{r, echo = FALSE}
+give.me.CI = function(ybar,ni,ci,MSE,multiplier){
+  if(sum(ci) != 0 & sum(ci !=0 ) != 1){
+    return("Error - you did not input a valid contrast")
+  } else if(length(ci) != length(ni)){
+    return("Error - not enough contrasts given")
+  }
+  else{
+    estimate = sum(ybar*ci)
+    SE = sqrt(MSE*sum(ci^2/ni))
+    CI = estimate + c(-1,1)*multiplier*SE
+    result = c(estimate,CI)
+    names(result) = c("Estimate","Lower Bound","Upper Bound")
+    return(result)
+  }
+}
+
+ci.1 = c(1, -1, 0)
+ci.2 = c(1, 0, -1)
+ci.3 = c(0, 1, -1)
+CI1 = give.me.CI(group.means,group.nis,ci.1,MSE,Tuk)
+CI2 = give.me.CI(group.means,group.nis,ci.2,MSE,Tuk)
+CI3 = give.me.CI(group.means,group.nis,ci.3,MSE,Tuk)
+```
+
+
+### Interpretation
+
+From our Single Factor Anova test and F-statisctic of 6.1537 we reject the null hypothesis that all true group means are equal and conclude that at least one true group mean is different. After adjusting our multiplier for our confidence interval with the Tukey multiplier, we conducted confidence intervals to determine which true group means were significantly different. The intervals revealed no difference in true mean weight lost between Diet A and B. Additionally we are 95% confident that the true mean weight lost for Diet C was larger than Diet A by between 0.3769153 and 3.4897514 and the true mean weight lost for Diet C was larger than Diet B by between 0.4254832 and 3.5051835.
+
+### Conclusion
+
+At first look of the data, the groups appeared to have different means and possibly violating the assumptions of equal variance and normality. We found that there were no outliers which will impact our data and violations. We conducted the Shapiro-Wilks Test which lead to a very high p-value, meaning our residuals were distrubuted normally. Furthermore we conducted the Brown-Forsythe Test and concluded that our residuals do have constant variance. 
+
+It was found that at least one true group mean of the data was not equal to the rest with alpha equal to 0.05. We then conducted pairwise confidence intervals to conclude that the true mean wieght lost was not different for Diets A and B, and that the true mean weight lost for Diet C is larger than Diets A and B. 
+
+
+### R Appendix
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
