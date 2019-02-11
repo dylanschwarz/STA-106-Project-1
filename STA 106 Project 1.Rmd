@@ -1,4 +1,8 @@
-
+---
+title: "STA 106 - Project 2"
+author: "Dylan Schwarz"
+output: html_document
+---
 
 ```{r, echo = FALSE}
 library(readr)
