@@ -1,5 +1,5 @@
 ---
-title: "STA 106 - Project 2"
+title: "STA 106 - Project 1"
 author: "Dylan Schwarz"
 output: html_document
 ---
