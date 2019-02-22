@@ -1,1 +1,1 @@
-# STA-106-Project-1
+# My STA 106 Project 1
